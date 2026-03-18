@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FOX Ticket Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">
+      <h1>FOX Ticket Tracker</h1>
+      <div class="status" id="status">No tickets yet</div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="section-head">
+          <h2>New Ticket Entry</h2>
+          <button id="showArchivedBtn" class="switch-toggle is-off" type="button" aria-pressed="false">
+            <span class="switch-copy">
+              <span class="switch-label">Archived Tickets</span>
+              <span class="switch-state" id="showArchivedState">Hidden</span>
+            </span>
+            <span class="switch-track" aria-hidden="true">
+              <span class="switch-thumb"></span>
+            </span>
+          </button>
+        </div>
+
+        <div class="form-stack">
+          <label class="field">
+            <span class="field-label">Ticket ID</span>
+            <input id="ticketCode" type="text" placeholder="Example: FOX-102" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Title</span>
+            <input id="ticketTitle" type="text" placeholder="Example: Payment page review" />
+          </label>
+
+          <div class="field-grid">
+            <label class="field">
+              <span class="field-label">Date Submitted</span>
+              <div class="native-date-wrap">
+                <input id="ticketSubmitted" class="native-date-input" type="date" lang="en-GB" />
+                <span class="native-date-value is-placeholder" id="ticketSubmittedDisplay">dd/mm/yyyy</span>
+              </div>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Date Completed</span>
+              <div class="native-date-wrap">
+                <input id="ticketCompleted" class="native-date-input" type="date" lang="en-GB" />
+                <span class="native-date-value is-placeholder" id="ticketCompletedDisplay">dd/mm/yyyy</span>
+              </div>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Status</span>
+              <select id="ticketStatus" title="Ticket status">
+                <option value="inprogress">In Progress</option>
+                <option value="waiting">Requires Approval</option>
+                <option value="completed">Completed</option>
+                <option value="canceled">Canceled</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="field">
+            <span class="field-label">Entry Details</span>
+            <textarea id="ticketDetails" rows="4" placeholder="Describe the ticket, blockers, owner notes, or next step."></textarea>
+          </label>
+
+          <div class="row">
+            <button id="addTicketBtn" class="btn-primary" type="button">Add Ticket</button>
+            <button id="exportCsvBtn" class="btn-info" type="button">Export CSV</button>
+            <button id="clearFormBtn" type="button">Clear Form</button>
+            <span class="muted">Sorted with In Progress first, then newer submitted dates.</span>
+          </div>
+        </div>
+
+        <div class="list-head">
+          <h2>Ticket Queue</h2>
+          <span class="muted" id="queueMeta">0 active tickets</span>
+        </div>
+        <div class="ticket-list" id="ticketList"></div>
+      </section>
+
+      <section class="card" id="detailsSection">
+        <div class="summary-grid">
+          <div class="stat">
+            <div class="label">In Progress</div>
+            <div class="val" id="countInProgress">0</div>
+          </div>
+          <div class="stat">
+            <div class="label">Requires Approval</div>
+            <div class="val" id="countWaiting">0</div>
+          </div>
+          <div class="stat">
+            <div class="label">Completed</div>
+            <div class="val" id="countCompleted">0</div>
+          </div>
+          <div class="stat">
+            <div class="label">Canceled</div>
+            <div class="val" id="countCanceled">0</div>
+          </div>
+        </div>
+
+        <div class="details-shell">
+          <div class="list-head">
+            <h2>Ticket Details</h2>
+            <div class="status-stack">
+              <span class="badge badge-muted" id="detailsStatusBadge">Select a ticket</span>
+              <div class="day-count day-count-muted" id="detailsDayCount">
+                <span class="day-count-value">0</span>
+                <span class="day-count-label">days</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="empty-state" id="detailsEmpty">
+            Click on a ticket card to inspect it, update fields, and add notes.
+          </div>
+
+          <div class="details-panel hidden" id="detailsPanel">
+            <input id="detailsId" type="hidden" />
+
+            <label class="field">
+              <span class="field-label">Ticket ID</span>
+              <input id="detailsCode" type="text" />
+            </label>
+
+            <label class="field">
+              <span class="field-label">Title</span>
+              <input id="detailsTitle" type="text" />
+            </label>
+
+            <div class="field-grid">
+              <label class="field">
+                <span class="field-label">Date Submitted</span>
+                <div class="native-date-wrap">
+                  <input id="detailsSubmitted" class="native-date-input" type="date" lang="en-GB" />
+                  <span class="native-date-value is-placeholder" id="detailsSubmittedDisplay">dd/mm/yyyy</span>
+                </div>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Date Completed</span>
+                <div class="native-date-wrap">
+                  <input id="detailsCompleted" class="native-date-input" type="date" lang="en-GB" />
+                  <span class="native-date-value is-placeholder" id="detailsCompletedDisplay">dd/mm/yyyy</span>
+                </div>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Status</span>
+                <select id="detailsStatus" title="Update status">
+                  <option value="inprogress">In Progress</option>
+                  <option value="waiting">Requires Approval</option>
+                  <option value="completed">Completed</option>
+                  <option value="canceled">Canceled</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="field">
+              <span class="field-label">Entry Details</span>
+              <textarea id="detailsText" rows="5"></textarea>
+            </label>
+
+            <div class="row">
+              <button id="saveTicketBtn" class="btn-primary" type="button">Save Changes</button>
+              <button id="priorityTicketBtn" class="btn-danger" type="button">Mark High Priority</button>
+              <button id="archiveTicketBtn" class="btn-info" type="button">Archive Ticket</button>
+            </div>
+
+            <div class="details-meta" id="detailsMeta"></div>
+
+            <div class="list-head notes-head">
+              <h3>Updates / Notes</h3>
+              <span class="muted" id="noteCount">0 notes</span>
+            </div>
+
+            <label class="field">
+              <span class="field-label">New Note</span>
+              <textarea id="noteText" rows="3" placeholder="Add a new update, status note, or handoff detail."></textarea>
+            </label>
+
+            <div class="row" style="margin-bottom:12px">
+              <button id="addNoteBtn" class="btn-ok" type="button">Add Note</button>
+            </div>
+
+            <div class="notes-list" id="noteList"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="banner">
+    <div id="bannerText" class="scroll-text"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
