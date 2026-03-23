@@ -338,10 +338,36 @@ button {
   background: #8a5360;
 }
 
+.queue-toolbar {
+  display: grid;
+  gap: 12px;
+}
+
+.queue-toolbar .list-head {
+  margin: 20px 0 0;
+}
+
+.search-field {
+  max-width: 360px;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 760px) {
+  .search-field {
+    max-width: none;
+  }
+}
+
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+
+@media (max-width: 840px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 560px) {
@@ -695,6 +721,10 @@ button {
 
 .proj.priority {
   color: var(--danger);
+}
+
+.proj.archived {
+  color: #c4ccdc;
 }
 
 .sep {

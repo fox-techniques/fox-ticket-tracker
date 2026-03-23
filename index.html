@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>FOX Ticket Tracker</title>
+  <link rel="shortcut icon" href="favicon.ico?v=20260323" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico?v=20260323" sizes="any" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -31,7 +33,7 @@
         <div class="form-stack">
           <label class="field">
             <span class="field-label">Ticket ID</span>
-            <input id="ticketCode" type="text" placeholder="Example: FOX-102" />
+            <input id="ticketCode" type="text" placeholder="Example: ID-102" />
           </label>
 
           <label class="field">
@@ -74,15 +76,24 @@
 
           <div class="row">
             <button id="addTicketBtn" class="btn-primary" type="button">Add Ticket</button>
+            <button id="importCsvBtn" class="btn-ok" type="button">Import CSV</button>
             <button id="exportCsvBtn" class="btn-info" type="button">Export CSV</button>
             <button id="clearFormBtn" type="button">Clear Form</button>
+            <input id="csvImportInput" type="file" accept=".csv,text/csv" hidden />
             <span class="muted">Sorted with In Progress first, then newer submitted dates.</span>
           </div>
         </div>
 
-        <div class="list-head">
-          <h2>Ticket Queue</h2>
-          <span class="muted" id="queueMeta">0 active tickets</span>
+        <div class="queue-toolbar">
+          <div class="list-head">
+            <h2>Ticket Queue</h2>
+            <span class="muted" id="queueMeta">0 active tickets</span>
+          </div>
+
+          <label class="field search-field">
+            <span class="field-label">Search Tickets</span>
+            <input id="ticketSearch" type="search" placeholder="Search by ID, title, details, or notes" />
+          </label>
         </div>
         <div class="ticket-list" id="ticketList"></div>
       </section>
@@ -104,6 +115,10 @@
           <div class="stat">
             <div class="label">Canceled</div>
             <div class="val" id="countCanceled">0</div>
+          </div>
+          <div class="stat">
+            <div class="label">Archived</div>
+            <div class="val" id="countArchived">0</div>
           </div>
         </div>
 
