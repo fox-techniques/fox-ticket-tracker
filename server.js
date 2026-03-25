@@ -60,6 +60,12 @@ function sendText(res, statusCode, body) {
   res.end(body);
 }
 
+function applyApiHeaders(res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, PUT, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
 function collectRequestBody(req) {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -125,6 +131,14 @@ async function serveStaticFile(req, res, pathname) {
 }
 
 async function handleApi(req, res) {
+  applyApiHeaders(res);
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   if (req.method === "GET") {
     sendJson(res, 200, await readTickets());
     return;

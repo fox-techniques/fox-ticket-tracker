@@ -1,7 +1,9 @@
 const TICKETS_KEY = "ftt.tickets";
 const SELECTED_KEY = "ftt.selectedId";
 const SHOW_ARCHIVED_KEY = "ftt.showArchived";
-const TICKETS_API_URL = "/api/tickets";
+const REPO_TARGET_KEY = "ftt.repoTargetBaseUrl";
+const TICKETS_API_PATH = "/api/tickets";
+const DEFAULT_REPO_TARGET = "http://127.0.0.1:4173";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const CSV_EXPORT_HEADERS = [
@@ -68,7 +70,8 @@ const STATUS_CONFIG = {
 const state = {
   tickets: [],
   searchQuery: "",
-  storageMode: "loading"
+  storageMode: "loading",
+  isPromoting: false
 };
 
 const $ = (id) => document.getElementById(id);
@@ -87,6 +90,7 @@ const el = {
   addTicketBtn: $("addTicketBtn"),
   importCsvBtn: $("importCsvBtn"),
   exportCsvBtn: $("exportCsvBtn"),
+  promoteStorageBtn: $("promoteStorageBtn"),
   clearFormBtn: $("clearFormBtn"),
   csvImportInput: $("csvImportInput"),
   queueMeta: $("queueMeta"),
@@ -98,6 +102,7 @@ const el = {
   countCanceled: $("countCanceled"),
   countArchived: $("countArchived"),
   detailsSection: $("detailsSection"),
+  detailsTrack: $("detailsTrack"),
   detailsEmpty: $("detailsEmpty"),
   detailsPanel: $("detailsPanel"),
   detailsId: $("detailsId"),
@@ -428,8 +433,32 @@ function isRepoStorageAvailable() {
   return window.location.protocol === "http:" || window.location.protocol === "https:";
 }
 
-async function loadTicketsFromRepo() {
-  const response = await fetch(TICKETS_API_URL, {
+function normalizeRepoBaseUrl(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  try {
+    const parsed = new URL(raw);
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return "";
+    }
+
+    const safePath = parsed.pathname
+      .replace(/\/api\/tickets\/?$/, "")
+      .replace(/\/+$/, "");
+    return `${parsed.origin}${safePath}`;
+  } catch {
+    return "";
+  }
+}
+
+function buildRepoApiUrl(baseUrl = window.location.origin) {
+  const safeBaseUrl = normalizeRepoBaseUrl(baseUrl);
+  return safeBaseUrl ? `${safeBaseUrl}${TICKETS_API_PATH}` : TICKETS_API_PATH;
+}
+
+async function loadTicketsFromRepo(apiUrl = TICKETS_API_PATH) {
+  const response = await fetch(apiUrl, {
     cache: "no-store",
     headers: {
       Accept: "application/json"
@@ -448,8 +477,8 @@ async function loadTicketsFromRepo() {
   return payload.map(normalizeTicket);
 }
 
-async function saveTicketsToRepo(tickets) {
-  const response = await fetch(TICKETS_API_URL, {
+async function saveTicketsToRepo(tickets, apiUrl = TICKETS_API_PATH) {
+  const response = await fetch(apiUrl, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json"
@@ -463,9 +492,17 @@ async function saveTicketsToRepo(tickets) {
 }
 
 async function hydrateTickets() {
+  const cachedTickets = getCachedTickets();
+
   if (isRepoStorageAvailable()) {
     try {
       const repoTickets = await loadTicketsFromRepo();
+      if (!repoTickets.length && cachedTickets.length) {
+        state.tickets = cachedTickets;
+        state.storageMode = "browser";
+        return;
+      }
+
       state.tickets = repoTickets;
       state.storageMode = "repo";
       cacheTicketsLocally(repoTickets);
@@ -475,7 +512,7 @@ async function hydrateTickets() {
     }
   }
 
-  state.tickets = getCachedTickets();
+  state.tickets = cachedTickets;
   state.storageMode = "browser";
 }
 
@@ -875,8 +912,64 @@ function buildBannerHtml(tickets) {
   ].join('<span class="sep">◆</span>');
 }
 
+let detailsTrackSyncFrame = null;
+
 function buildStorageLabel() {
   return state.storageMode === "repo" ? "Repo storage" : "Browser storage";
+}
+
+function shouldShowPromoteStorageButton() {
+  return state.storageMode === "browser" && getCachedTickets().length > 0;
+}
+
+function renderStorageActions() {
+  const showPromote = shouldShowPromoteStorageButton();
+  el.promoteStorageBtn.classList.toggle("hidden", !showPromote);
+  el.promoteStorageBtn.disabled = state.isPromoting;
+  el.promoteStorageBtn.textContent = state.isPromoting
+    ? "Promoting..."
+    : "Promote Browser Data";
+}
+
+function getSelectedTicketCard(selectedId) {
+  return Array.from(el.ticketList.querySelectorAll(".ticket-card"))
+    .find((card) => card.dataset.ticketId === selectedId) ?? null;
+}
+
+function clearDetailsTrackOffset() {
+  el.detailsTrack.style.paddingTop = "0px";
+}
+
+function syncDetailsTrackOffset(selectedId) {
+  clearDetailsTrackOffset();
+
+  if (!selectedId || window.innerWidth <= 980) {
+    return;
+  }
+
+  const selectedCard = getSelectedTicketCard(selectedId);
+  if (!selectedCard) {
+    return;
+  }
+
+  const trackTop = el.detailsTrack.getBoundingClientRect().top;
+  const cardTop = selectedCard.getBoundingClientRect().top;
+  const offset = Math.max(0, Math.round(cardTop - trackTop));
+
+  if (offset) {
+    el.detailsTrack.style.paddingTop = `${offset}px`;
+  }
+}
+
+function scheduleDetailsTrackSync(selectedId = getSelectedId()) {
+  if (detailsTrackSyncFrame) {
+    window.cancelAnimationFrame(detailsTrackSyncFrame);
+  }
+
+  detailsTrackSyncFrame = window.requestAnimationFrame(() => {
+    detailsTrackSyncFrame = null;
+    syncDetailsTrackOffset(selectedId);
+  });
 }
 
 function render() {
@@ -901,6 +994,8 @@ function render() {
     el.status.textContent = `${pluralize(activeTickets.length, "ticket")} in queue • ${pluralize(archivedCount, "archived ticket")} • ${buildStorageLabel()}`;
   }
 
+  renderStorageActions();
+
   el.showArchivedBtn.classList.toggle("is-on", showArchived);
   el.showArchivedBtn.classList.toggle("is-off", !showArchived);
   el.showArchivedBtn.setAttribute("aria-pressed", String(showArchived));
@@ -922,6 +1017,66 @@ function render() {
 
   renderDetails(selectedTicket);
   el.bannerText.innerHTML = buildBannerHtml(tickets);
+  scheduleDetailsTrackSync(selectedTicket?.id ?? "");
+}
+
+async function promoteBrowserStorageToRepo() {
+  const cachedTickets = getCachedTickets();
+  if (!cachedTickets.length) {
+    alert("No browser-stored tickets are available to promote.");
+    return;
+  }
+
+  let repoBaseUrl = window.location.origin;
+  if (!isRepoStorageAvailable()) {
+    const requestedBaseUrl = window.prompt(
+      "Enter the FOX Ticket Tracker server URL.",
+      load(REPO_TARGET_KEY, DEFAULT_REPO_TARGET)
+    );
+    if (requestedBaseUrl === null) {
+      return;
+    }
+
+    repoBaseUrl = normalizeRepoBaseUrl(requestedBaseUrl);
+    if (!repoBaseUrl) {
+      alert("Enter a valid http:// or https:// server URL.");
+      return;
+    }
+
+    save(REPO_TARGET_KEY, repoBaseUrl);
+  }
+
+  const confirmed = window.confirm(
+    `Replace repo storage with ${pluralize(cachedTickets.length, "ticket")} from browser storage?`
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  state.isPromoting = true;
+  renderStorageActions();
+
+  try {
+    await saveTicketsToRepo(cachedTickets, buildRepoApiUrl(repoBaseUrl));
+
+    if (isRepoStorageAvailable()) {
+      state.tickets = cachedTickets.map(normalizeTicket);
+      state.storageMode = "repo";
+      cacheTicketsLocally(state.tickets);
+      render();
+    }
+
+    const successMessage = isRepoStorageAvailable()
+      ? `Promoted ${pluralize(cachedTickets.length, "ticket")} to repo storage.`
+      : `Promoted ${pluralize(cachedTickets.length, "ticket")} to ${repoBaseUrl}. Open the server-backed app there to keep working from repo storage.`;
+    alert(successMessage);
+  } catch (error) {
+    console.error(error);
+    alert(error instanceof Error ? error.message : "Could not promote browser data to repo storage.");
+  } finally {
+    state.isPromoting = false;
+    renderStorageActions();
+  }
 }
 
 async function addTicket() {
@@ -1322,6 +1477,9 @@ el.csvImportInput.addEventListener("change", async (event) => {
   }
 });
 el.exportCsvBtn.addEventListener("click", exportTicketsCsv);
+el.promoteStorageBtn.addEventListener("click", () => {
+  void promoteBrowserStorageToRepo();
+});
 el.clearFormBtn.addEventListener("click", clearCreateForm);
 el.ticketSearch.addEventListener("input", () => {
   state.searchQuery = normalizeSearchQuery(el.ticketSearch.value);
@@ -1406,6 +1564,10 @@ el.noteText.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
     void addNoteToSelectedTicket();
   }
+});
+
+window.addEventListener("resize", () => {
+  scheduleDetailsTrackSync();
 });
 
 async function init() {
